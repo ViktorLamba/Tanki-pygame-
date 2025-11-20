@@ -32,8 +32,8 @@ class Game:
             if event.type == pygame.QUIT:
                 self.running = False
 
-    def update(self):
-        pass
+    def update(self):  
+        self.all_sprites.update()  # Обновление спрайтов
 
     def draw(self):
         self.screen.fill((30, 30, 30))

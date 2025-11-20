@@ -12,6 +12,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
         self.all_sprites = pygame.sprite.Group()
+        self.bullets = pygame.sprite.Group()
 
         self.player = Tank(
             200,
@@ -43,14 +44,14 @@ class Game:
                 self.running = False
 
     def update(self):
-            self.player.update()  # управление игроком от клавиш
-
-            # обновляем всех врагов
-            for enemy in self.enemies:
-                enemy.update(self.player, self.enemies)
+        self.player.update()
+        for enemy in self.enemies:
+            enemy.update(self.player, self)
+        self.bullets.update()
 
     def draw(self):
         self.screen.fill((30, 30, 30))
         self.all_sprites.draw(self.screen)
+        self.bullets.draw(self.screen)
         self.player.draw_bullets(self.screen)
         pygame.display.flip()

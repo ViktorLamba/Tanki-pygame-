@@ -20,6 +20,13 @@ class Game:
 
         self.all_sprites.add(self.player)
 
+        self.enemies = pygame.sprite.Group()
+        positions = [(100, 100), (700, 500), (600, 100), (200, 500)]  # можешь менять координаты
+        for x, y in positions:
+            enemy = EnemyTank(x, y)
+            self.enemies.add(enemy)
+            self.all_sprites.add(enemy)
+
     def run(self):
         while self.running:
             self.clock.tick(settings.FPS)
@@ -32,8 +39,12 @@ class Game:
             if event.type == pygame.QUIT:
                 self.running = False
 
-    def update(self):  
-        self.all_sprites.update()  # Обновление спрайтов
+    def update(self):
+            self.player.update()  # управление игроком от клавиш
+
+            # обновляем всех врагов
+            for enemy in self.enemies:
+                enemy.update(self.player, self.enemies)
 
     def draw(self):
         self.screen.fill((30, 30, 30))

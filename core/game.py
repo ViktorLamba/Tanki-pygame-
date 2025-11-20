@@ -52,5 +52,5 @@ class Game:
     def draw(self):
         self.screen.fill((30, 30, 30))
         self.all_sprites.draw(self.screen)
-
+        self.player.draw_bullets(self.screen)
         pygame.display.flip()

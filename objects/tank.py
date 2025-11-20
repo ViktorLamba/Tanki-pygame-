@@ -14,6 +14,8 @@ class Tank(pygame.sprite.Sprite):
 
         self.speed = settings.TANK_SPEED
         self.angle = 0  # Угол поворота танка
+        self.bullets = pygame.sprite.Group()  # Группа для пуль
+        self.shoot_cooldown = 0  # Задержка между выстрелами
 
     def update(self):
         keys = pygame.key.get_pressed()  # Получаем клавиши
@@ -25,6 +27,16 @@ class Tank(pygame.sprite.Sprite):
             self.move_forward()
         if keys[pygame.K_s]:
             self.move_backward()
+                # Обработка стрельбы
+        if keys[pygame.K_SPACE] and self.shoot_cooldown <= 0:
+            self.shoot()
+            self.shoot_cooldown = 20  # Задержка 20 кадров
+        
+        if self.shoot_cooldown > 0:
+            self.shoot_cooldown -= 1
+            
+        # Обновляем пули
+        self.bullets.update()    
         self.rotate()
 
     def move_forward(self):
@@ -48,4 +60,20 @@ class Tank(pygame.sprite.Sprite):
         # Сохранение центра
         self.rect = self.image.get_rect(center=self.rect.center)
 
+    def shoot(self):
+        """Создание пули"""
+        from objects.bullet import Bullet  # Импортируем здесь чтобы избежать циклического импорта
+        
+        # Вычисляем позицию дула (перед танком)
+        rad = math.radians(self.angle - 90)
+        muzzle_x = self.rect.centerx - math.cos(rad) * 40
+        muzzle_y = self.rect.centery + math.sin(rad) * 40
+        
+        # Создаем пулю
+        bullet = Bullet(muzzle_x, muzzle_y, self.angle)
+        self.bullets.add(bullet)
+
+    def draw_bullets(self, screen):
+        """Отрисовка пуль"""
+        self.bullets.draw(screen)
     

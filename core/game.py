@@ -1,6 +1,7 @@
 import pygame
 import settings
 from objects.tank import Tank
+from objects.enemy_tank import EnemyTank
 
 
 class Game:
@@ -26,6 +27,8 @@ class Game:
             enemy = EnemyTank(x, y)
             self.enemies.add(enemy)
             self.all_sprites.add(enemy)
+
+        
 
     def run(self):
         while self.running:

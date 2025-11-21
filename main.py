@@ -1,5 +1,6 @@
 import pygame
 import sys
+import os
 from core.multiplayer import Client, Server
 from core.game import Game
 import threading
@@ -77,7 +78,168 @@ class MainMenu:
         self.current_buttons = self.buttons
 
     def show_settings(self):
-        print("Открыть настройки")  # пока заглушка
+        # файл настроек рядом с main.py
+        settings_path = os.path.join(os.path.dirname(__file__), 'settings.py')
+        settings_path = os.path.normpath(settings_path)
+
+        # пресеты разрешений
+        presets = [
+            (800, 600),
+            (1024, 768),
+            (1280, 720),
+            (1366, 768),
+            (1600, 900),
+            (1920, 1080),
+        ]
+
+        # сложности (скорость танка)
+        difficulties = [
+            ("Easy", 5),
+            ("Normal", 3),
+            ("Hard", 1),
+        ]
+
+        # текущие значения
+        try:
+            import settings as game_settings_local
+        except Exception:
+            from core import game as game_settings_local  # fallback
+
+        cur_w, cur_h = getattr(game_settings_local, 'WIDTH', WIDTH), getattr(game_settings_local, 'HEIGHT', HEIGHT)
+        try:
+            preset_index = presets.index((cur_w, cur_h))
+        except ValueError:
+            preset_index = 0
+
+        cur_speed = getattr(game_settings_local, 'TANK_SPEED', 3)
+        diff_index = 1
+        for i, (_, sp) in enumerate(difficulties):
+            if sp == cur_speed:
+                diff_index = i
+                break
+
+        font = pygame.font.SysFont("arial", 28)
+        small = pygame.font.SysFont("arial", 22)
+
+        running = True
+        while running:
+            self.screen.fill((30, 30, 30))
+
+            title = font.render("Settings", True, (255, 255, 255))
+            self.screen.blit(title, (40, 20))
+
+            # Сложность
+            screen_w, screen_h = self.screen.get_size()
+            center_x = screen_w // 2
+            d_y = int(screen_h * 0.18)
+            selector_width = 320
+            d_x = center_x - selector_width // 2
+            d_label = small.render("Сложность", True, (200, 200, 200))
+            d_label_rect = d_label.get_rect(center=(center_x, d_y - 20))
+            self.screen.blit(d_label, d_label_rect.topleft)
+
+            d_left = pygame.Rect(d_x, d_y, 40, 40)
+            d_right = pygame.Rect(d_x + selector_width - 40, d_y, 40, 40)
+            pygame.draw.rect(self.screen, (120, 120, 120), d_left)
+            pygame.draw.rect(self.screen, (120, 120, 120), d_right)
+            self.screen.blit(small.render("<", True, (255, 255, 255)), (d_left.x + 10,
+                                d_left.y + 6))
+            self.screen.blit(small.render(">", True, (255, 255, 255)), (d_right.x + 10,
+                                d_right.y + 6))
+
+            # распределяем варианты сложности равномерно по ширине селектора
+            for i, (name, _) in enumerate(difficulties):
+                text_surf = small.render(name, True, (255, 255, 0) if i == diff_index else (200,
+                                                                                              200,
+                                                                                              200))
+                pos_x = d_x + int(selector_width * (i + 1) / (len(difficulties) + 1))
+                self.screen.blit(text_surf, (pos_x - text_surf.get_width() // 2,
+                                             d_y + 8))
+
+            # Разрешение экрана
+            r_y = d_y + 160
+            r_selector_width = 360
+            r_x = center_x - r_selector_width // 2
+
+            r_label = small.render("Разрешение экрана", True, (200, 200, 200))
+            r_label_rect = r_label.get_rect(center=(center_x, r_y - 20))
+            self.screen.blit(r_label, r_label_rect.topleft)
+
+            r_left = pygame.Rect(r_x, r_y, 40, 40)
+            r_right = pygame.Rect(r_x + r_selector_width - 40, r_y, 40, 40)
+            pygame.draw.rect(self.screen, (120, 120, 120), r_left)
+            pygame.draw.rect(self.screen, (120, 120, 120), r_right)
+            self.screen.blit(small.render("<", True, (255, 255, 255)), (r_left.x + 10, r_left.y + 6))
+            self.screen.blit(small.render(">", True, (255, 255, 255)), (r_right.x + 10, r_right.y + 6))
+
+            res_text = f"{presets[preset_index][0]} x {presets[preset_index][1]}"
+            res_surf = small.render(res_text, True, (255, 255, 0))
+            res_rect = res_surf.get_rect(center=(center_x, r_y + 14))
+            self.screen.blit(res_surf, res_rect.topleft)
+
+            # Сохранить и Отмена кнопки
+            buttons_left = center_x - 130
+            save_rect = pygame.Rect(buttons_left, r_y + 140, 120, 40)
+            cancel_rect = pygame.Rect(buttons_left + 140, r_y + 140, 120, 40)
+            pygame.draw.rect(self.screen, (50, 150, 50), save_rect)
+            pygame.draw.rect(self.screen, (150, 50, 50), cancel_rect)
+            self.screen.blit(small.render("Save", True, (255, 255, 255)), (save_rect.x + 30, save_rect.y + 8))
+            self.screen.blit(small.render("Cancel", True, (255, 255, 255)), (cancel_rect.x + 24, cancel_rect.y + 8))
+
+            pygame.display.flip()
+            self.clock.tick(60)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    self.running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_LEFT:
+                        diff_index = max(0, diff_index - 1)
+                    elif event.key == pygame.K_RIGHT:
+                        diff_index = min(len(difficulties) - 1, diff_index + 1)
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    pos = event.pos
+                    if d_left.collidepoint(pos):
+                        diff_index = max(0, diff_index - 1)
+                    if d_right.collidepoint(pos):
+                        diff_index = min(len(difficulties) - 1, diff_index + 1)
+                    if r_left.collidepoint(pos):
+                        preset_index = max(0, preset_index - 1)
+                    if r_right.collidepoint(pos):
+                        preset_index = min(len(presets) - 1, preset_index + 1)
+                    if save_rect.collidepoint(pos):
+                        new_w, new_h = presets[preset_index]
+                        new_speed = difficulties[diff_index][1]
+                        try:
+                            content = (
+                                f"WIDTH = {new_w}\n"
+                                f"HEIGHT = {new_h}\n"
+                                f"FPS = {getattr(game_settings_local, 'FPS', 60)}\n"
+                                f"TANK_SPEED = {new_speed}\n"
+                                f"BULLET_SPEED = {getattr(game_settings_local, 'BULLET_SPEED', 7)}\n"
+                            )
+                            with open(settings_path, 'w') as f:
+                                f.write(content)
+                            # reload глобального модуля настроек если он импортирован
+                            try:
+                                import importlib, settings as s_mod
+                                importlib.reload(s_mod)
+                            except Exception:
+                                pass
+                            # обновляем экран и фон меню
+                            self.screen = pygame.display.set_mode((new_w, new_h))
+                            try:
+                                bg = pygame.image.load("assets/images/menu_bg.png").convert()
+                                self.background = pygame.transform.scale(bg, (new_w, new_h))
+                            except Exception:
+                                self.background = pygame.Surface((new_w, new_h))
+                                self.background.fill((20, 20, 20))
+                        except Exception as e:
+                            print("Error saving settings:", e)
+                        running = False
+                    if cancel_rect.collidepoint(pos):
+                        running = False
 
     def create_world(self):
         # Запускаем сервер в отдельном потоке
@@ -128,8 +290,8 @@ class MainMenu:
         input_text = ""
         entering = True
 
-        input_rect = pygame.Rect(200, 250, 400, 40)  
-        input_color = (0, 0, 0) 
+        input_rect = pygame.Rect(200, 250, 400, 40)
+        input_color = (0, 0, 0)
 
         while entering:
             self.screen.fill((30, 30, 30)) 
@@ -167,6 +329,17 @@ class MainMenu:
                     sys.exit()
                 for button in self.current_buttons:
                     button.handle_event(event)
+
+            # Центрирование кнопок по ширине
+            screen_w, screen_h = self.screen.get_size()
+            top_y = int(screen_h * 0.22)
+            spacing = 100
+            for idx, button in enumerate(self.current_buttons):
+                b_w, b_h = button.rect.size
+                center_x = screen_w // 2
+                new_x = center_x - b_w // 2
+                new_y = top_y + idx * spacing
+                button.rect.topleft = (new_x, new_y)
 
             self.screen.blit(self.background, (0, 0))
 

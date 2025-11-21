@@ -8,7 +8,7 @@ class Tank(pygame.sprite.Sprite):
     def __init__(self, x, y, image):
         super().__init__()
         original_image = pygame.image.load(image).convert_alpha()
-        self.original_image = pygame.transform.scale(original_image, (100, 100))
+        self.original_image = pygame.transform.scale(original_image, (85, 115))
         self.image = self.original_image
         self.rect = self.image.get_rect(center=(x, y))
 

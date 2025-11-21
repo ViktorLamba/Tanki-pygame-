@@ -1,7 +1,7 @@
 import pygame
 import sys
 from core.multiplayer import Client, Server
-from core.game import Game
+from core.game import Game, MultiplayerGame
 import threading
 
 
@@ -80,18 +80,20 @@ class MainMenu:
         print("Открыть настройки")  # пока заглушка
 
     def create_world(self):
-        # Запускаем сервер в отдельном потоке
-        threading.Thread(target=Server().start, daemon=True).start()
-        print("Сервер запущен!")
+        self.server = Server()
+        threading.Thread(target=self.server.start, daemon=True).start()
 
-        # Создаем и запускаем игру
-        game = Game()
-        game.run()
+        self.game = MultiplayerGame(is_host=True, server=self.server)
+        self.game.run()
 
     def join_world(self):
         host_ip = self.enter_host_ip()
-        self.client = Client(host_ip, port=5555)
-        threading.Thread(target=self.run_multiplayer_game, daemon=True).start()
+        self.client = Client(host_ip)
+        # Клиент сам запускает свой receive-loop в __init__, дополнительный
+        # поток здесь не нужен и вызывает гонки при чтении сокета.
+
+        self.game = MultiplayerGame(is_host=False, client=self.client)
+        self.game.run()
 
     def run_multiplayer_game(self):
         running = True

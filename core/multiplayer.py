@@ -1,42 +1,108 @@
 import socket
 import threading
+import json
 
 
 class Server:
     def __init__(self, host='0.0.0.0', port=5555):
         self.host = host
         self.port = port
-        self.clients = []
+        self.clients = []          # [(conn, player_id), ...]
+        self.players = {}          # player_id -> данные
+        self.next_id = 1           # уникальные ID
+        self.lock = threading.Lock()
 
     def handle_client(self, conn, addr):
-        print(f"Подключился {addr}")
-        while True:
-            try:
-                msg = conn.recv(1024).decode()
-                if not msg:
+        print(f"{addr} подключился")
+        player_id = f"player{len(self.clients)+1}"
+        with self.lock:
+            self.players[player_id] = {"x": 100, "y": 100, "angle": 0}
+            self.clients.append((conn, player_id))
+
+        # отправляем подключившемуся клиенту его player_id
+        try:
+            init_msg = json.dumps({
+                "type": "init",
+                "player_id": player_id
+            }).encode() + b"\n"
+            conn.send(init_msg)
+        except Exception:
+            pass
+
+        try:
+            buffer = ""
+            while True:
+                try:
+                    chunk = conn.recv(4096)
+                    if not chunk:
+                        break
+                    buffer += chunk.decode()
+
+                    # обрабатываем все полные сообщения, разделенные '\n'
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        if not line.strip():
+                            continue
+                        try:
+                            data = json.loads(line)
+                        except Exception:
+                            continue
+                        if isinstance(data, dict):
+                            with self.lock:
+                                self.players[player_id] = data
+                except ConnectionResetError:
                     break
-                print(f"{addr}: {msg}")
-                # рассылаем всем клиентам
-                for c in self.clients:
-                    if c != conn:
-                        c.send(msg.encode())
-            except Exception:
-                break
-        conn.close()
-        self.clients.remove(conn)
-        print(f"{addr} отключился")
+                except Exception:
+                    pass
+
+                pass
+
+        finally:
+            conn.close()
+            # убираем отключившегося игрока
+            with self.lock:
+                self.clients = [
+                    (c, pid) for c, pid in self.clients if c != conn
+                ]
+                if player_id in self.players:
+                    del self.players[player_id]
+            print(f"{addr} отключился")
 
     def start(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.bind((self.host, self.port))
         server.listen()
         print(f"Сервер запущен на {self.host}:{self.port}")
+        # Запускаем поток, который периодически рассылает состояние всем клиентам
+
+        def broadcaster():
+            import time
+            while True:
+                try:
+                    with self.lock:
+                        state = dict(self.players)
+                        clients = list(self.clients)
+                    if state:
+                        data = json.dumps(state).encode() + b"\n"
+                        for c, pid in clients:
+                            try:
+                                c.send(data)
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+                time.sleep(1 / 30)  # 30 Hz
+
+        threading.Thread(target=broadcaster, daemon=True).start()
 
         while True:
             conn, addr = server.accept()
-            self.clients.append(conn)
-            thread = threading.Thread(target=self.handle_client, args=(conn, addr))
-            thread.start()
+            t = threading.Thread(
+                target=self.handle_client,
+                args=(conn, addr),
+                daemon=True,
+            )
+            t.start()
 
 
 class Client:
@@ -45,21 +111,43 @@ class Client:
         self.port = port
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client.connect((self.host, self.port))
+        self.state = {}      # player_id -> {"x": ..., "y": ..., "angle": ...}
+        self.player_id = None
+        threading.Thread(target=self.receive_loop, daemon=True).start()
 
-    def receive_messages(self):
+    def send_action(self, action):
+        try:
+            self.client.send(json.dumps(action).encode() + b"\n")
+        except Exception:
+            pass
+
+    def receive_loop(self):
+        buffer = ""
         while True:
             try:
-                msg = self.client.recv(1024).decode()
-                if msg:
-                    print("Сервер:", msg)
+                chunk = self.client.recv(4096)
+                if not chunk:
+                    break
+                buffer += chunk.decode()
+
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    if not line.strip():
+                        continue
+                    try:
+                        data = json.loads(line)
+                    except Exception:
+                        continue
+
+                    # если это инициализационное сообщение с назначенным id
+                    if isinstance(data, dict) and data.get("type") == "init":
+                        self.player_id = data.get("player_id")
+                    else:
+                        # ожидаем здесь словарь со всем состоянием игроков
+                        if isinstance(data, dict):
+                            self.state = data
             except Exception:
                 break
-
-    def start(self):
-        threading.Thread(target=self.receive_messages, daemon=True).start()
-        while True:
-            msg = input()
-            self.client.send(msg.encode())
 
 
 if __name__ == "__main__":
@@ -68,6 +156,6 @@ if __name__ == "__main__":
         Server().start()
     elif mode == "client":
         host = input("Введите IP хоста: ").strip()
-        Client(host).start()
+        Client(host)
     else:
         print("Неверный режим. Введите 'server' или 'client'.")

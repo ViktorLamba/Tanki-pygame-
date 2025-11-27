@@ -2,6 +2,21 @@ import pygame
 import math
 import settings
 
+# ЗВУКИ
+pygame.mixer.pre_init(frequency=22050, size=-16, channels=2, buffer=512)
+pygame.mixer.init()
+
+try:
+    shoot_sound = pygame.mixer.Sound("assets/sounds/shoot.wav")
+    explosion_sound = pygame.mixer.Sound("assets/sounds/explosion.wav")
+    
+    shoot_sound.set_volume(0.7)
+    explosion_sound.set_volume(0.8)
+    print("Звуки успешно загружены!")
+except Exception as e:
+    print("ОШИБКА ЗВУКА:", e)
+    shoot_sound = None
+    explosion_sound = None
 
 class Tank(pygame.sprite.Sprite):
     """Базовый класс танка (игрок + враги)"""
@@ -51,6 +66,10 @@ class Tank(pygame.sprite.Sprite):
         self.death_time = pygame.time.get_ticks()
         self.current_explosion_frame = 0
         self.explosion_timer = 0
+        
+        # ЗВУК ВЗРЫВА
+        if explosion_sound:
+            explosion_sound.play()
 
     def respawn(self, x, y):
         self.hp = self.max_hp
@@ -91,7 +110,10 @@ class Tank(pygame.sprite.Sprite):
         bullet = Bullet(muzzle_x, muzzle_y, self.angle, owner=self)
         self.bullets.add(bullet)
         self.shoot_cooldown = 20
-
+        # ЗВУК ВЫСТРЕЛА
+        if shoot_sound:
+            shoot_sound.play()
+            
     def update(self):
         if not self.alive:
             # Анимация взрыва

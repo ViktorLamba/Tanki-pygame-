@@ -2,11 +2,12 @@ import pygame
 import settings
 from objects.tank import Tank
 from objects.enemy_tank import EnemyTank
+from maps.map import GameMap
 
 
 class Game:
     """Одиночная игра — классика танчиков"""
-    def __init__(self):
+    def __init__(self, map_theme=None):
         self.screen = pygame.display.get_surface()
         pygame.display.set_caption("Tanki 2D — Бой")
 
@@ -14,29 +15,24 @@ class Game:
         self.running = True
         self.return_to_main_menu = False
 
-        # Вставление карты
         self.map_theme = map_theme or settings.CURRENT_MAP_THEME
         self.game_map = GameMap(theme=self.map_theme)
+
         self.all_sprites = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
 
-        # Группы спрайтов
-        self.all_sprites = pygame.sprite.Group()
-        self.enemies = pygame.sprite.Group()
-
-        # Позиции игроков и врагов
-        self.player = Tank(*self.game_map.spawn_points[0], "assets/images/tank_player.png")
+        spawn_pos = self.game_map.spawn_points[0]
+        self.player = Tank(spawn_pos[0], spawn_pos[1], "assets/images/tank_player.png")
+        self.player.game_map = self.game_map
         self.all_sprites.add(self.player)
-        self.enemy_positions = self.game_map.spawn_points[1:]  # враги в остальных углах
-        self.spawn_enemies()
+
+        self.enemy_positions = self.game_map.spawn_points[1:]
         self.spawn_enemies()
 
-        # Таймеры
         self.player_respawn_timer = 0
         self.player_respawn_delay = 3000
         self.victory = False
 
-        # Шрифты
         self.font_title = pygame.font.SysFont("arial", 80, bold=True)
         self.font_button = pygame.font.SysFont("arial", 48)
         self.font_timer = pygame.font.SysFont("arial", 40)
@@ -47,7 +43,8 @@ class Game:
     def spawn_enemies(self):
         self.enemies.empty()
         for pos in self.enemy_positions:
-            enemy = EnemyTank(*pos)
+            enemy = EnemyTank(pos[0], pos[1])
+            enemy.game_map = self.game_map
             self.enemies.add(enemy)
             self.all_sprites.add(enemy)
 
@@ -74,7 +71,7 @@ class Game:
             if self.player_respawn_timer == 0:
                 self.player_respawn_timer = pygame.time.get_ticks()
             elif pygame.time.get_ticks() - self.player_respawn_timer >= self.player_respawn_delay:
-                self.player.respawn(400, 300)
+                self.player.respawn(self.game_map.spawn_points[0][0], self.game_map.spawn_points[0][1])
                 self.player_respawn_timer = 0
             return
 
@@ -83,7 +80,6 @@ class Game:
             if enemy.alive:
                 enemy.update(self.player, self)
 
-        # Пули игрока → враги
         for bullet in self.player.bullets:
             hits = pygame.sprite.spritecollide(bullet, self.enemies, False)
             for hit in hits:
@@ -91,7 +87,6 @@ class Game:
                     hit.take_damage(34)
                     bullet.kill()
 
-        # Пули врагов → игрок
         for enemy in self.enemies:
             for bullet in enemy.bullets:
                 if bullet.owner != self.player and pygame.sprite.collide_rect(bullet, self.player):
@@ -101,12 +96,10 @@ class Game:
 
     def restart_level(self):
         self.spawn_enemies()
-        self.player.respawn(400, 300)
+        self.player.respawn(self.game_map.spawn_points[0][0], self.game_map.spawn_points[0][1])
         self.victory = False
 
     def draw(self):
-        self.screen.fill((30, 30, 30))
-
         self.game_map.draw(self.screen)
 
         for sprite in self.all_sprites:
@@ -184,10 +177,9 @@ class Game:
         return self.return_to_main_menu
 
 
-# ВЕРНУЛ МУЛЬТИПЛЕЕР — ЧТОБЫ main.py НЕ РУГАЛСЯ
 class MultiplayerGame:
     """Мультиплеерный мир без ботов, с настоящими танками игроков."""
-    def __init__(self, is_host=False, server=None, client=None):
+    def __init__(self, is_host=False, server=None, client=None, map_theme=None):
         self.screen = pygame.display.set_mode((settings.WIDTH, settings.HEIGHT))
         pygame.display.set_caption("Tanki 2D Multiplayer")
         self.clock = pygame.time.Clock()
@@ -199,7 +191,10 @@ class MultiplayerGame:
         self.map_theme = map_theme or settings.CURRENT_MAP_THEME
         self.game_map = GameMap(theme=self.map_theme)
 
-        self.player = Tank(*self.game_map.spawn_points[0], "assets/images/tank_player.png")
+        spawn_pos = self.game_map.spawn_points[0]
+        self.player = Tank(spawn_pos[0], spawn_pos[1], "assets/images/tank_player.png")
+        self.player.game_map = self.game_map
+
         self.all_sprites = pygame.sprite.Group()
         self.all_sprites.add(self.player)
         self.bullets = self.player.bullets
@@ -262,6 +257,7 @@ class MultiplayerGame:
                     continue
                 if pid not in self.other_players:
                     self.other_players[pid] = Tank(100, 100, "assets/images/tank_player.png")
+                    self.other_players[pid].game_map = self.game_map
                     self.all_sprites.add(self.other_players[pid])
 
                 tank = self.other_players[pid]

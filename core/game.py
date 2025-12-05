@@ -14,17 +14,21 @@ class Game:
         self.running = True
         self.return_to_main_menu = False
 
+        # Вставление карты
+        self.map_theme = map_theme or settings.CURRENT_MAP_THEME
+        self.game_map = GameMap(theme=self.map_theme)
+        self.all_sprites = pygame.sprite.Group()
+        self.enemies = pygame.sprite.Group()
+
         # Группы спрайтов
         self.all_sprites = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
 
-        # Позиции врагов
-        self.enemy_positions = [(100, 100), (700, 100), (700, 500), (100, 500)]
-
-        # Игрок
-        self.player = Tank(400, 300, "assets/images/tank_player.png")
+        # Позиции игроков и врагов
+        self.player = Tank(*self.game_map.spawn_points[0], "assets/images/tank_player.png")
         self.all_sprites.add(self.player)
-
+        self.enemy_positions = self.game_map.spawn_points[1:]  # враги в остальных углах
+        self.spawn_enemies()
         self.spawn_enemies()
 
         # Таймеры
@@ -42,8 +46,8 @@ class Game:
 
     def spawn_enemies(self):
         self.enemies.empty()
-        for x, y in self.enemy_positions:
-            enemy = EnemyTank(x, y)
+        for pos in self.enemy_positions:
+            enemy = EnemyTank(*pos)
             self.enemies.add(enemy)
             self.all_sprites.add(enemy)
 
@@ -102,6 +106,8 @@ class Game:
 
     def draw(self):
         self.screen.fill((30, 30, 30))
+
+        self.game_map.draw(self.screen)
 
         for sprite in self.all_sprites:
             if hasattr(sprite, "draw"):
@@ -190,7 +196,10 @@ class MultiplayerGame:
         self.server = server
         self.client = client
 
-        self.player = Tank(200, 200, "assets/images/tank_player.png")
+        self.map_theme = map_theme or settings.CURRENT_MAP_THEME
+        self.game_map = GameMap(theme=self.map_theme)
+
+        self.player = Tank(*self.game_map.spawn_points[0], "assets/images/tank_player.png")
         self.all_sprites = pygame.sprite.Group()
         self.all_sprites.add(self.player)
         self.bullets = self.player.bullets
@@ -266,7 +275,7 @@ class MultiplayerGame:
         self.bullets.update()
 
     def draw(self):
-        self.screen.fill((30, 30, 30))
+        self.game_map.draw(self.screen)
         self.all_sprites.draw(self.screen)
         self.player.draw_bullets(self.screen)
 

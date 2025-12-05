@@ -80,6 +80,7 @@ class Game:
             if enemy.alive:
                 enemy.update(self.player, self)
 
+        # Пули игрока → враги
         for bullet in self.player.bullets:
             hits = pygame.sprite.spritecollide(bullet, self.enemies, False)
             for hit in hits:
@@ -87,6 +88,7 @@ class Game:
                     hit.take_damage(34)
                     bullet.kill()
 
+        # Пули врагов → игрок
         for enemy in self.enemies:
             for bullet in enemy.bullets:
                 if bullet.owner != self.player and pygame.sprite.collide_rect(bullet, self.player):

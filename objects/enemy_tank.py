@@ -1,14 +1,14 @@
 import pygame
 import math
 import random
-import settings                # ← ДОБАВИЛ!
-from objects.tank import Tank
-from objects.bullet import Bullet
+import settings
+from importlib import reload
+from .tank import Tank
 
 
 class EnemyTank(Tank):
     def __init__(self, x, y):
-        super().__init__(x, y, "assets/images/tank_enemy.png")  # можно свою текстуру
+        super().__init__(x, y, "assets/images/tank_enemy.png")
         self.angle = random.randint(0, 360)
         self.target_angle = self.angle
         self.state = "search"
@@ -34,6 +34,7 @@ class EnemyTank(Tank):
 
     def update(self, player, game):
         if not self.alive:
+            super().update()
             return
 
         px, py = player.rect.center
@@ -42,7 +43,6 @@ class EnemyTank(Tank):
         dy = py - ty
         distance = math.hypot(dx, dy)
 
-        # Поведение ИИ
         if distance < self.vision_radius and player.alive:
             self.state = "combat"
             self.target_angle = math.degrees(math.atan2(dy, dx))
@@ -51,30 +51,28 @@ class EnemyTank(Tank):
             if random.random() < 0.008:
                 self.target_angle += random.randint(-90, 90)
 
-        # Плавный поворот
         diff = (self.target_angle - self.angle + 180) % 360 - 180
         if abs(diff) > self.rotate_speed:
             self.angle += self.rotate_speed if diff > 0 else -self.rotate_speed
         else:
             self.angle = self.target_angle
 
-        # Движение вперёд, если далеко
         if distance > self.stop_distance and self.state == "combat":
             old_rect = self.rect.copy()
             self.move_forward()
             self.avoid_others(game)
-            # Границы карты
             if (self.rect.left < 30 or self.rect.right > settings.WIDTH - 30 or
                 self.rect.top < 30 or self.rect.bottom > settings.HEIGHT - 30):
                 self.rect = old_rect
                 self.target_angle += 180
 
-        # Стрельба
         if (self.state == "combat" and abs(diff) < 12 and
             pygame.time.get_ticks() - self.last_shot > self.fire_interval and player.alive):
             self.shoot()
             self.last_shot = pygame.time.get_ticks()
 
-        # Обновляем свои пули
+        if self.shoot_cooldown > 0:
+            self.shoot_cooldown -= 1
+
         self.bullets.update()
         self.rotate()

@@ -150,3 +150,32 @@ class Tank(pygame.sprite.Sprite):
 
     def draw_bullets(self, screen):
         self.bullets.draw(screen)
+
+    def take_damage(self, amount):
+        if not self.alive:
+            return
+        self.hp -= amount
+        if self.hp <= 0:
+            self.hp = 0
+            self.die()
+
+    def die(self):
+        self.alive = False
+        self.current_explosion_frame = 0
+        self.explosion_timer = 0
+        if explosion_sound:
+            explosion_sound.play()
+    def take_damage(self, amount):
+        if not self.alive:
+            return
+        self.hp -= amount
+        if self.hp <= 0:
+            self.hp = 0
+            self.die()
+
+    def die(self):
+        self.alive = False
+        self.current_explosion_frame = 0
+        self.explosion_timer = 0
+        if explosion_sound:
+            explosion_sound.play()

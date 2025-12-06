@@ -165,17 +165,15 @@ class Tank(pygame.sprite.Sprite):
         self.explosion_timer = 0
         if explosion_sound:
             explosion_sound.play()
-    def take_damage(self, amount):
-        if not self.alive:
-            return
-        self.hp -= amount
-        if self.hp <= 0:
-            self.hp = 0
-            self.die()
 
-    def die(self):
-        self.alive = False
+    def respawn(self, x, y):
+        """Возрождение танка на новой позиции"""
+        self.rect.centerx = x
+        self.rect.centery = y
+        self.hp = self.max_hp
+        self.alive = True
+        self.angle = 0
+        self.rotate()
+        self.bullets.empty()
         self.current_explosion_frame = 0
         self.explosion_timer = 0
-        if explosion_sound:
-            explosion_sound.play()

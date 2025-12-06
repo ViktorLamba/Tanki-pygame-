@@ -203,6 +203,10 @@ class MultiplayerGame:
 
         self.other_players = {}
         self.player_id = None
+        self.player_respawn_timer = 0
+        self.player_respawn_delay = 3000  # 3 секунды
+        self.other_players_respawn_timers = {}  # player_id -> время смерти
+        
         if self.is_host and self.server:
             self.player_id = "host"
             self.server.players[self.player_id] = {
@@ -228,30 +232,55 @@ class MultiplayerGame:
                 self.running = False
 
     def update(self):
+        # Обработка возрождения основного игрока
+        if not self.player.alive:
+            if self.player_respawn_timer == 0:
+                self.player_respawn_timer = pygame.time.get_ticks()
+            elif pygame.time.get_ticks() - self.player_respawn_timer >= self.player_respawn_delay:
+                spawn_pos = self.game_map.spawn_points[0]
+                self.player.respawn(spawn_pos[0], spawn_pos[1])
+                self.player_respawn_timer = 0
+                return
+
         self.player.update()
+
+        # Подготавливаем список пуль для отправки
+        bullets_data = []
+        for bullet in self.player.bullets:
+            bullets_data.append({
+                "x": bullet.x,
+                "y": bullet.y,
+                "angle": bullet.angle
+            })
 
         action = {
             "x": self.player.rect.centerx,
             "y": self.player.rect.centery,
             "angle": self.player.angle,
             "hp": self.player.hp,
-            "alive": self.player.alive
+            "alive": self.player.alive,
+            "bullets": bullets_data
         }
 
         if self.is_host and self.server:
             if self.player_id:
                 self.server.players[self.player_id] = action
+                self.server.bullets[self.player_id] = bullets_data
         elif not self.is_host and self.client:
             self.client.send_action(action)
 
+        # Обновляем состояние других игроков
         state_src = None
+        bullets_src = None
         local_pid = self.player_id
         if self.client:
-            state_src = self.client.state
+            state_src = self.client.players_state
+            bullets_src = self.client.bullets_state
             local_pid = self.client.player_id
         elif self.is_host and self.server:
             with self.server.lock:
                 state_src = dict(self.server.players)
+                bullets_src = dict(self.server.bullets)
 
         if state_src:
             for pid, data in state_src.items():
@@ -263,20 +292,86 @@ class MultiplayerGame:
                     self.all_sprites.add(self.other_players[pid])
 
                 tank = self.other_players[pid]
+                old_alive = tank.alive
+                
                 tank.rect.centerx = data.get("x", tank.rect.centerx)
                 tank.rect.centery = data.get("y", tank.rect.centery)
                 tank.angle = data.get("angle", tank.angle)
                 tank.hp = data.get("hp", tank.hp)
                 tank.alive = data.get("alive", True)
+                
+                # Если танк только что умер, начинаем отсчет возрождения
+                if old_alive and not tank.alive and pid not in self.other_players_respawn_timers:
+                    self.other_players_respawn_timers[pid] = pygame.time.get_ticks()
+                
+                # Если танк возродился
+                if not old_alive and tank.alive and pid in self.other_players_respawn_timers:
+                    del self.other_players_respawn_timers[pid]
+                
                 tank.rotate()
+        
+        # Обработка возрождения других игроков
+        current_time = pygame.time.get_ticks()
+        for pid in list(self.other_players_respawn_timers.keys()):
+            if current_time - self.other_players_respawn_timers[pid] >= self.player_respawn_delay:
+                if pid in self.other_players:
+                    tank = self.other_players[pid]
+                    if not tank.alive:
+                        # Выбираем случайную точку возрождения
+                        import random
+                        spawn_pos = random.choice(self.game_map.spawn_points)
+                        tank.respawn(spawn_pos[0], spawn_pos[1])
+                        del self.other_players_respawn_timers[pid]
 
-        self.bullets.update()
+        # Обновляем пули других игроков
+        if bullets_src:
+            for pid, bullet_list in bullets_src.items():
+                if pid == local_pid:
+                    continue
+                if pid in self.other_players:
+                    tank = self.other_players[pid]
+                    # Очищаем старые пули
+                    tank.bullets.empty()
+                    # Добавляем новые пули
+                    for bullet_data in bullet_list:
+                        from objects.bullet import Bullet
+                        bullet = Bullet(
+                            bullet_data["x"],
+                            bullet_data["y"],
+                            bullet_data["angle"],
+                            owner=tank
+                        )
+                        tank.bullets.add(bullet)
+
+        # Обработка столкновений пуль с игроком
+        # Пули врагов → игрок
+        for pid, tank in self.other_players.items():
+            for bullet in tank.bullets:
+                if pygame.sprite.collide_rect(bullet, self.player):
+                    if self.player.alive:
+                        self.player.take_damage(settings.BULLET_DAMAGE)
+                    bullet.kill()
+
+        # Пули игрока → враги
+        for pid, tank in self.other_players.items():
+            for bullet in list(self.player.bullets):
+                if pygame.sprite.spritecollide(bullet, pygame.sprite.Group(tank), False):
+                    if tank.alive:
+                        tank.take_damage(settings.BULLET_DAMAGE)
+                    bullet.kill()
+
+        self.player.bullets.update()
+        for tank in self.other_players.values():
+            tank.bullets.update()
 
     def draw(self):
         self.game_map.draw(self.screen)
-        self.all_sprites.draw(self.screen)
+        
+        # Рисуем основного игрока
+        self.player.draw(self.screen)
         self.player.draw_bullets(self.screen)
 
+        # Рисуем остальных игроков и их пули
         for tank in self.other_players.values():
             tank.draw(self.screen)
             tank.draw_bullets(self.screen)

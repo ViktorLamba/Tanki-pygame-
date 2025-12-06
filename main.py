@@ -250,7 +250,11 @@ class MainMenu:
 
     def join_world(self):
         host_ip = self.enter_host_ip()
-        self.client = Client(host_ip)
+        try:
+            self.client = Client(host_ip)
+        except ConnectionRefusedError:
+            print("Не удалось подключиться к серверу")
+            return
         # Клиент сам запускает свой receive-loop в __init__, дополнительный
         # поток здесь не нужен и вызывает гонки при чтении сокета.
 

@@ -1,6 +1,8 @@
 import pygame
 
+
 class GameMap:
+    """Класс игровой карты."""
     MAPS = {
         "summer": [
             "11111111111111111111",
@@ -74,31 +76,41 @@ class GameMap:
 
     def get_colors(self):
         if self.theme == "winter":
-            return {"ground": (230,245,255), "wall": (130,160,200), "decor": (255,255,255), "decor2": (200,230,255)}
+            return {"ground": (230, 245, 255), "wall": (130, 160, 200), "decor": (255, 255, 255), "decor2": (200, 230, 255)}
         elif self.theme == "desert":
-            return {"ground": (220,190,130), "wall": (180,130,70), "decor": (210,180,100), "decor2": (160,120,70)}
+            return {"ground": (220, 190, 130), "wall": (180, 130, 70), "decor": (210, 180, 100), "decor2": (160, 120, 70)}
         else:
-            return {"ground": (70,180,70), "wall": (160,90,30), "decor": (40,120,40), "decor2": (20,90,20)}
+            return {"ground": (70, 180, 70), "wall": (160, 90, 30), "decor": (40, 120, 40), "decor2": (20, 90, 20)}
 
     def draw(self, screen):
         colors = self.get_colors()
         for y in range(self.height):
             for x in range(self.width):
                 tile = self.grid[y][x]
-                rect = pygame.Rect(x * 40, y * 40, 40, 40)
+                rect = pygame.Rect(x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size)
                 if tile == 1:
-                    pygame.draw.rect(screen, colors["wall"], rect)
-                    pygame.draw.rect(screen, (0,0,0), rect, 2)
+                    # Рисуем внутреннюю прямоугольную текстуру стены с отступом,
+                    # чтобы визуальная часть была немного меньше коллизионной зоны.
+                    padding = max(2, int(self.tile_size * 0.18))
+                    inner = rect.inflate(-padding, -padding)
+                    pygame.draw.rect(screen, colors["wall"], inner)
+                    pygame.draw.rect(screen, (0, 0, 0), inner, max(1, padding // 6))
                 elif tile == 2:
                     pygame.draw.rect(screen, colors["ground"], rect)
-                    pygame.draw.circle(screen, colors["decor"], rect.center, 16)
-                    pygame.draw.circle(screen, colors["decor2"], rect.center, 9)
+                    # Декор центрируем внутри внутренней области стены/плитки,
+                    # радиусы зависят от размера плитки, чтобы не "плыли".
+                    padding = max(2, int(self.tile_size * 0.18))
+                    inner = rect.inflate(-padding, -padding)
+                    decor_r1 = max(4, int(self.tile_size * 0.4))
+                    decor_r2 = max(2, int(self.tile_size * 0.22))
+                    pygame.draw.circle(screen, colors["decor"], inner.center, decor_r1)
+                    pygame.draw.circle(screen, colors["decor2"], inner.center, decor_r2)
                 else:
                     pygame.draw.rect(screen, colors["ground"], rect)
 
     def is_wall(self, x, y):
-        tx = int(x // 40)
-        ty = int(y // 40)
+        tx = int(x // self.tile_size)
+        ty = int(y // self.tile_size)
         if tx < 0 or tx >= 20 or ty < 0 or ty >= 15:
             return True
         return self.grid[ty][tx] == 1

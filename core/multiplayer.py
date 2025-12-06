@@ -9,6 +9,7 @@ class Server:
         self.port = port
         self.clients = []          # [(conn, player_id), ...]
         self.players = {}          # player_id -> данные
+        self.bullets = {}          # player_id -> список пуль
         self.next_id = 1           # уникальные ID
         self.lock = threading.Lock()
 
@@ -16,7 +17,8 @@ class Server:
         print(f"{addr} подключился")
         player_id = f"player{len(self.clients)+1}"
         with self.lock:
-            self.players[player_id] = {"x": 100, "y": 100, "angle": 0}
+            self.players[player_id] = {"x": 100, "y": 100, "angle": 0, "hp": 100, "alive": True}
+            self.bullets[player_id] = []
             self.clients.append((conn, player_id))
 
         # отправляем подключившемуся клиенту его player_id
@@ -49,6 +51,9 @@ class Server:
                             continue
                         if isinstance(data, dict):
                             with self.lock:
+                                # Обновляем данные игрока
+                                if "bullets" in data:
+                                    self.bullets[player_id] = data.pop("bullets", [])
                                 self.players[player_id] = data
                 except ConnectionResetError:
                     break
@@ -66,6 +71,8 @@ class Server:
                 ]
                 if player_id in self.players:
                     del self.players[player_id]
+                if player_id in self.bullets:
+                    del self.bullets[player_id]
             print(f"{addr} отключился")
 
     def start(self):
@@ -81,9 +88,10 @@ class Server:
                 try:
                     with self.lock:
                         state = dict(self.players)
+                        bullets_state = dict(self.bullets)
                         clients = list(self.clients)
                     if state:
-                        data = json.dumps(state).encode() + b"\n"
+                        data = json.dumps({"players": state, "bullets": bullets_state}).encode() + b"\n"
                         for c, pid in clients:
                             try:
                                 c.send(data)
@@ -110,10 +118,17 @@ class Client:
         self.host = host
         self.port = port
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client.connect((self.host, self.port))
-        self.state = {}      # player_id -> {"x": ..., "y": ..., "angle": ...}
+        self.players_state = {}      # player_id -> {"x": ..., "y": ..., "angle": ...}
+        self.bullets_state = {}      # player_id -> список пуль
         self.player_id = None
-        threading.Thread(target=self.receive_loop, daemon=True).start()
+
+        try:
+            self.client.connect((self.host, self.port))
+            threading.Thread(target=self.receive_loop, daemon=True).start()
+        except ConnectionRefusedError:
+            print(f"Ошибка: не удалось подключиться к {self.host}:{self.port}")
+            print("Убедитесь, что сервер запущен и IP адрес верный")
+            raise
 
     def send_action(self, action):
         try:
@@ -143,9 +158,10 @@ class Client:
                     if isinstance(data, dict) and data.get("type") == "init":
                         self.player_id = data.get("player_id")
                     else:
-                        # ожидаем здесь словарь со всем состоянием игроков
+                        # ожидаем здесь словарь со всем состоянием игроков и пуль
                         if isinstance(data, dict):
-                            self.state = data
+                            self.players_state = data.get("players", {})
+                            self.bullets_state = data.get("bullets", {})
             except Exception:
                 break
 

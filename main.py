@@ -45,7 +45,7 @@ class MainMenu:
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.running = True
-        self.game = Game()
+        
 
         # Основные кнопки
         self.buttons = [

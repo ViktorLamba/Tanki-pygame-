@@ -99,6 +99,9 @@ class MainMenu:
             ("Hard", 1),
         ]
 
+        # темы карт
+        map_themes = ["summer", "winter", "desert"]
+
         # текущие значения
         try:
             import settings as game_settings_local
@@ -117,6 +120,12 @@ class MainMenu:
             if sp == cur_speed:
                 diff_index = i
                 break
+
+        cur_map_theme = getattr(game_settings_local, 'CURRENT_MAP_THEME', 'summer')
+        try:
+            map_index = map_themes.index(cur_map_theme)
+        except ValueError:
+            map_index = 0
 
         font = pygame.font.SysFont("arial", 28)
         small = pygame.font.SysFont("arial", 22)
@@ -177,10 +186,31 @@ class MainMenu:
             res_rect = res_surf.get_rect(center=(center_x, r_y + 14))
             self.screen.blit(res_surf, res_rect.topleft)
 
+            # Выбор карты
+            m_y = r_y + 160
+            m_selector_width = 250
+            m_x = center_x - m_selector_width // 2
+
+            m_label = small.render("Карта", True, (200, 200, 200))
+            m_label_rect = m_label.get_rect(center=(center_x, m_y - 20))
+            self.screen.blit(m_label, m_label_rect.topleft)
+
+            m_left = pygame.Rect(m_x, m_y, 40, 40)
+            m_right = pygame.Rect(m_x + m_selector_width - 40, m_y, 40, 40)
+            pygame.draw.rect(self.screen, (120, 120, 120), m_left)
+            pygame.draw.rect(self.screen, (120, 120, 120), m_right)
+            self.screen.blit(small.render("<", True, (255, 255, 255)), (m_left.x + 10, m_left.y + 6))
+            self.screen.blit(small.render(">", True, (255, 255, 255)), (m_right.x + 10, m_right.y + 6))
+
+            map_text = map_themes[map_index]
+            map_surf = small.render(map_text, True, (255, 255, 0))
+            map_rect = map_surf.get_rect(center=(center_x, m_y + 14))
+            self.screen.blit(map_surf, map_rect.topleft)
+
             # Сохранить и Отмена кнопки
             buttons_left = center_x - 130
-            save_rect = pygame.Rect(buttons_left, r_y + 140, 120, 40)
-            cancel_rect = pygame.Rect(buttons_left + 140, r_y + 140, 120, 40)
+            save_rect = pygame.Rect(buttons_left, m_y + 100, 120, 40)
+            cancel_rect = pygame.Rect(buttons_left + 140, m_y + 100, 120, 40)
             pygame.draw.rect(self.screen, (50, 150, 50), save_rect)
             pygame.draw.rect(self.screen, (150, 50, 50), cancel_rect)
             self.screen.blit(small.render("Save", True, (255, 255, 255)), (save_rect.x + 30, save_rect.y + 8))
@@ -208,9 +238,14 @@ class MainMenu:
                         preset_index = max(0, preset_index - 1)
                     if r_right.collidepoint(pos):
                         preset_index = min(len(presets) - 1, preset_index + 1)
+                    if m_left.collidepoint(pos):
+                        map_index = max(0, map_index - 1)
+                    if m_right.collidepoint(pos):
+                        map_index = min(len(map_themes) - 1, map_index + 1)
                     if save_rect.collidepoint(pos):
                         new_w, new_h = presets[preset_index]
                         new_speed = difficulties[diff_index][1]
+                        new_map = map_themes[map_index]
                         try:
                             content = (
                                 f"WIDTH = {new_w}\n"
@@ -218,6 +253,8 @@ class MainMenu:
                                 f"FPS = {getattr(game_settings_local, 'FPS', 60)}\n"
                                 f"TANK_SPEED = {new_speed}\n"
                                 f"BULLET_SPEED = {getattr(game_settings_local, 'BULLET_SPEED', 7)}\n"
+                                f"TANK_HP = {getattr(game_settings_local, 'TANK_HP', 100)}\n"
+                                f"CURRENT_MAP_THEME = \"{new_map}\"\n"
                             )
                             with open(settings_path, 'w') as f:
                                 f.write(content)

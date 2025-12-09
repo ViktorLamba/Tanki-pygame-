@@ -44,13 +44,13 @@ class GameMap:
             "1                  1",
             "1   1111    1111   1",
             "1                  1",
-            "1   1          1   1",
-            "1   1   1111   1   1",
+            "1                  1",
+            "1       1111       1",
             "1       1  1       1",
             "111111  1  1  111111",
             "1       1  1       1",
-            "1   1   1111   1   1",
-            "1   1          1   1",
+            "1       1111       1",
+            "1                  1",
             "1                  1",
             "1                  1",
             "11111111111111111111",
@@ -91,7 +91,7 @@ class GameMap:
                 if tile == 1:
                     # Рисуем внутреннюю прямоугольную текстуру стены с отступом,
                     # чтобы визуальная часть была немного меньше коллизионной зоны.
-                    padding = max(2, int(self.tile_size * 0.18))
+                    padding = 0
                     inner = rect.inflate(-padding, -padding)
                     pygame.draw.rect(screen, colors["wall"], inner)
                     pygame.draw.rect(screen, (0, 0, 0), inner, max(1, padding // 6))

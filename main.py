@@ -253,9 +253,11 @@ class MainMenu:
                                 f"FPS = {getattr(game_settings_local, 'FPS', 60)}\n"
                                 f"TANK_SPEED = {new_speed}\n"
                                 f"BULLET_SPEED = {getattr(game_settings_local, 'BULLET_SPEED', 7)}\n"
+                                f"BULLET_DAMAGE = {getattr(game_settings_local, 'BULLET_DAMAGE', 34)}\n"
                                 f"TANK_HP = {getattr(game_settings_local, 'TANK_HP', 100)}\n"
                                 f"CURRENT_MAP_THEME = \"{new_map}\"\n"
                             )
+
                             with open(settings_path, 'w') as f:
                                 f.write(content)
                             # reload глобального модуля настроек если он импортирован

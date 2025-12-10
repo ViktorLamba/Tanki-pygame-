@@ -1,4 +1,5 @@
 import pygame
+import settings
 
 
 class GameMap:
@@ -10,13 +11,13 @@ class GameMap:
             "1                  1",
             "1   1111    1111   1",
             "1                  1",
-            "1   1          1   1",
-            "1   1   1111   1   1",
+            "1                  1",
+            "1       1111       1",
             "1       1  1       1",
-            "111111  1  1  111111",
+            "11111   1  1   11111",
             "1       1  1       1",
-            "1   1   1111   1   1",
-            "1   1          1   1",
+            "1       1111       1",
+            "1                  1",
             "1                  1",
             "1                  1",
             "11111111111111111111",
@@ -44,13 +45,13 @@ class GameMap:
             "1                  1",
             "1   1111    1111   1",
             "1                  1",
-            "1   1          1   1",
-            "1   1   1111   1   1",
+            "1                  1",
+            "1       1111       1",
             "1       1  1       1",
             "111111  1  1  111111",
             "1       1  1       1",
-            "1   1   1111   1   1",
-            "1   1          1   1",
+            "1       1111       1",
+            "1                  1",
             "1                  1",
             "1                  1",
             "11111111111111111111",
@@ -59,19 +60,31 @@ class GameMap:
 
     def __init__(self, theme="summer"):
         self.theme = theme.lower() if theme.lower() in self.MAPS else "summer"
-        self.tile_size = 40
+
         self.width = 20
         self.height = 15
+
+        # считаем размер клетки по меньшей стороне окна
+        scalex = settings.WIDTH / self.width
+        scaley = settings.HEIGHT / self.height
+        self.tile_size = int(min(scalex, scaley))
+
+        map_px_width = self.width * self.tile_size
+        map_px_height = self.height * self.tile_size
+        self.offset_x = (settings.WIDTH - map_px_width) // 2
+        self.offset_y = (settings.HEIGHT - map_px_height) // 2
+
         self.grid = []
         for row in self.MAPS[self.theme]:
-            padded = row.ljust(20)[:20]
+            padded = row.ljust(self.width)[:self.width]
             self.grid.append([int(c) if c in "12" else 0 for c in padded])
 
+        # спавн‑поинты считаем в координатах карты + отступ
         self.spawn_points = [
-            (120, 120),   # левый верх
-            (680, 120),   # правый верх
-            (120, 480),   # левый низ
-            (680, 480),   # правый низ
+            (self.offset_x + 3 * self.tile_size,  self.offset_y + 3 * self.tile_size),
+            (self.offset_x + 17 * self.tile_size, self.offset_y + 3 * self.tile_size),
+            (self.offset_x + 3 * self.tile_size,  self.offset_y + 12 * self.tile_size),
+            (self.offset_x + 17 * self.tile_size, self.offset_y + 12 * self.tile_size),
         ]
 
     def get_colors(self):
@@ -87,18 +100,20 @@ class GameMap:
         for y in range(self.height):
             for x in range(self.width):
                 tile = self.grid[y][x]
-                rect = pygame.Rect(x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size)
+                rect = pygame.Rect(
+                    self.offset_x + x * self.tile_size,
+                    self.offset_y + y * self.tile_size,
+                    self.tile_size,
+                    self.tile_size
+                )
                 if tile == 1:
-                    # Рисуем внутреннюю прямоугольную текстуру стены с отступом,
-                    # чтобы визуальная часть была немного меньше коллизионной зоны.
-                    padding = max(2, int(self.tile_size * 0.18))
+                    padding = 0
                     inner = rect.inflate(-padding, -padding)
                     pygame.draw.rect(screen, colors["wall"], inner)
                     pygame.draw.rect(screen, (0, 0, 0), inner, max(1, padding // 6))
                 elif tile == 2:
                     pygame.draw.rect(screen, colors["ground"], rect)
                     # Декор центрируем внутри внутренней области стены/плитки,
-                    # радиусы зависят от размера плитки, чтобы не "плыли".
                     padding = max(2, int(self.tile_size * 0.18))
                     inner = rect.inflate(-padding, -padding)
                     decor_r1 = max(4, int(self.tile_size * 0.4))
@@ -109,8 +124,8 @@ class GameMap:
                     pygame.draw.rect(screen, colors["ground"], rect)
 
     def is_wall(self, x, y):
-        tx = int(x // self.tile_size)
-        ty = int(y // self.tile_size)
-        if tx < 0 or tx >= 20 or ty < 0 or ty >= 15:
+        tx = int((x - self.offset_x) // self.tile_size)
+        ty = int((y - self.offset_y) // self.tile_size)
+        if tx < 0 or tx >= self.width or ty < 0 or ty >= self.height:
             return True
         return self.grid[ty][tx] == 1
